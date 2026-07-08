@@ -180,6 +180,18 @@ pub const DETECTORS: &[Detector] = &[
         marker_sibling: None,
         regenerate_hint: "zig build",
     },
+    Detector {
+        label: "Flutter / Dart",
+        dir_name: ".dart_tool",
+        marker_sibling: Some("pubspec.yaml"),
+        regenerate_hint: "flutter pub get / dart pub get",
+    },
+    Detector {
+        label: "Swift Package Manager",
+        dir_name: ".build",
+        marker_sibling: Some("Package.swift"),
+        regenerate_hint: "swift build",
+    },
 ];
 
 /// Directory names we never recurse into, either because they're irrelevant

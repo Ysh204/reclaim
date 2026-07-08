@@ -35,6 +35,10 @@ struct Args {
     /// Print findings as JSON instead of a human-readable table.
     #[arg(long)]
     json: bool,
+
+    /// Exclude paths or directories containing any of these substrings.
+    #[arg(long, short, value_delimiter = ',')]
+    exclude: Vec<String>,
 }
 
 fn main() -> Result<()> {
@@ -51,7 +55,7 @@ fn main() -> Result<()> {
     }
 
     println!("{} {}", "Scanning".bold(), root.display());
-    let candidates = scanner::find_candidates(&root);
+    let candidates = scanner::find_candidates(&root, &args.exclude);
 
     if candidates.is_empty() {
         println!("Nothing found — this tree looks clean already.");

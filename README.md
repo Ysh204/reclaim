@@ -66,6 +66,7 @@ reclaim --dry-run          # scan and report only, never delete
 reclaim --yes              # skip the picker, delete everything found
 reclaim --min-size-mb 100  # only show artifacts 100 MB or larger
 reclaim --json             # machine-readable output, e.g. for scripting
+reclaim --exclude proj1    # exclude paths containing the pattern "proj1"
 ```
 
 By default `reclaim` shows you everything it found above 1 MB, lets you
@@ -87,6 +88,8 @@ deletes what you confirm.
 | Next.js | `.next` | `next build` |
 | Nuxt | `.nuxt` | `nuxt build` |
 | Terraform | `.terraform` | `terraform init` |
+| Flutter / Dart | `.dart_tool` | `flutter pub get` / `dart pub get` |
+| Swift Package Manager | `.build` | `swift build` |
 | Composer | `vendor` | `composer install` |
 | Go | `vendor` | `go mod vendor` |
 | Ruby (Bundler) | `.bundle` | `bundle install` |
@@ -95,7 +98,7 @@ deletes what you confirm.
 | Haskell (Cabal) | `dist-newstyle` | `cabal build` |
 | Zig | `zig-cache`, `zig-out` | `zig build` |
 
-Generic-sounding directories (`build`, `bin`, `obj`, `target`, `vendor`) are
+Generic-sounding directories (`build`, `bin`, `obj`, `target`, `vendor`, `.build`) are
 only flagged when a matching project marker file sits next to them (e.g.
 `target/` is only flagged as Rust build output if there's a `Cargo.toml`
 right there), so `reclaim` won't touch an unrelated folder that happens to

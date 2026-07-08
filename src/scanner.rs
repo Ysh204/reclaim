@@ -34,7 +34,7 @@ fn has_marker_sibling(parent: &Path, marker: &str) -> bool {
 /// Walk `root`, looking for directories matching any known detector.
 /// Returns unsized findings (label + path); size/mtime are filled in later
 /// by `size_findings` so the initial walk stays fast.
-pub fn find_candidates(root: &Path) -> Vec<(String, String, std::path::PathBuf)> {
+pub fn find_candidates(root: &Path, excludes: &[String]) -> Vec<(String, String, std::path::PathBuf)> {
     let mut candidates = Vec::new();
     let mut it = WalkDir::new(root).into_iter();
 
@@ -46,6 +46,15 @@ pub fn find_candidates(root: &Path) -> Vec<(String, String, std::path::PathBuf)>
         };
 
         if !entry.file_type().is_dir() {
+            continue;
+        }
+
+        let path_str = entry.path().to_string_lossy().replace('\\', "/");
+        if excludes.iter().any(|pattern| {
+            let normalized_pattern = pattern.replace('\\', "/");
+            path_str.contains(&normalized_pattern)
+        }) {
+            it.skip_current_dir();
             continue;
         }
 
@@ -194,7 +203,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         touch(&dir.path().join("proj/node_modules/pkg/index.js"));
 
-        let candidates = find_candidates(dir.path());
+        let candidates = find_candidates(dir.path(), &[]);
         assert_eq!(candidates.len(), 1);
         assert_eq!(candidates[0].0, "Node.js");
         assert_eq!(candidates[0].2, dir.path().join("proj/node_modules"));
@@ -206,7 +215,7 @@ mod tests {
         touch(&dir.path().join("proj/Cargo.toml"));
         touch(&dir.path().join("proj/target/debug/binary"));
 
-        let candidates = find_candidates(dir.path());
+        let candidates = find_candidates(dir.path(), &[]);
         assert_eq!(candidates.len(), 1);
         assert_eq!(candidates[0].0, "Rust");
     }
@@ -219,7 +228,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         touch(&dir.path().join("proj/build/output.txt"));
 
-        let candidates = find_candidates(dir.path());
+        let candidates = find_candidates(dir.path(), &[]);
         assert!(candidates.is_empty());
     }
 
@@ -233,7 +242,7 @@ mod tests {
                 .join("proj/node_modules/nested/node_modules/x.js"),
         );
 
-        let candidates = find_candidates(dir.path());
+        let candidates = find_candidates(dir.path(), &[]);
         assert_eq!(candidates.len(), 1);
     }
 
@@ -244,7 +253,7 @@ mod tests {
         // (wrongly) walked into it.
         touch(&dir.path().join(".git/node_modules/x.js"));
 
-        let candidates = find_candidates(dir.path());
+        let candidates = find_candidates(dir.path(), &[]);
         assert!(candidates.is_empty());
     }
 
@@ -256,11 +265,49 @@ mod tests {
         fs::write(nm.join("a.bin"), vec![0u8; 1000]).unwrap();
         fs::write(nm.join("b.bin"), vec![0u8; 2000]).unwrap();
 
-        let candidates = find_candidates(dir.path());
+        let candidates = find_candidates(dir.path(), &[]);
         let findings = size_findings(candidates);
 
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].size_bytes, 3000);
         assert!(findings[0].last_modified_secs.is_some());
+    }
+
+    #[test]
+    fn finds_flutter_dart_tool() {
+        let dir = tempfile::tempdir().unwrap();
+        touch(&dir.path().join("flutter_proj/pubspec.yaml"));
+        touch(&dir.path().join("flutter_proj/.dart_tool/package_config.json"));
+
+        let candidates = find_candidates(dir.path(), &[]);
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].0, "Flutter / Dart");
+    }
+
+    #[test]
+    fn finds_swift_pm_build() {
+        let dir = tempfile::tempdir().unwrap();
+        touch(&dir.path().join("swift_proj/Package.swift"));
+        touch(&dir.path().join("swift_proj/.build/debug/foo"));
+
+        let candidates = find_candidates(dir.path(), &[]);
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].0, "Swift Package Manager");
+    }
+
+    #[test]
+    fn excludes_paths_properly() {
+        let dir = tempfile::tempdir().unwrap();
+        touch(&dir.path().join("proj1/node_modules/x.js"));
+        touch(&dir.path().join("proj2/node_modules/x.js"));
+
+        // Exclude proj1 entirely
+        let candidates = find_candidates(dir.path(), &["proj1".to_string()]);
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].2, dir.path().join("proj2/node_modules"));
+
+        // Exclude node_modules
+        let candidates = find_candidates(dir.path(), &["node_modules".to_string()]);
+        assert!(candidates.is_empty());
     }
 }

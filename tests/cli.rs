@@ -143,3 +143,29 @@ fn nonexistent_path_exits_with_error() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("error"));
 }
+
+#[test]
+fn exclude_flag_skips_matching_directories() {
+    let dir = tempfile::tempdir().unwrap();
+    let nm1 = dir.path().join("proj1/node_modules/pkg/blob.bin");
+    let nm2 = dir.path().join("proj2/node_modules/pkg/blob.bin");
+    write_file(&nm1, 1_000_000);
+    write_file(&nm2, 1_000_000);
+
+    let output = Command::new(reclaim_bin())
+        .arg(dir.path())
+        .arg("--yes")
+        .arg("--min-size-mb")
+        .arg("0")
+        .arg("--exclude")
+        .arg("proj1")
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+
+    // proj1's node_modules should still exist since it was excluded...
+    assert!(nm1.exists());
+    // ...but proj2's node_modules should be gone.
+    assert!(!nm2.exists());
+}
