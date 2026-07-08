@@ -169,3 +169,59 @@ fn exclude_flag_skips_matching_directories() {
     // ...but proj2's node_modules should be gone.
     assert!(!nm2.exists());
 }
+
+#[test]
+fn reclaimignore_file_skips_matching_directories() {
+    let dir = tempfile::tempdir().unwrap();
+    let nm1 = dir.path().join("proj1/node_modules/pkg/blob.bin");
+    let nm2 = dir.path().join("proj2/node_modules/pkg/blob.bin");
+    write_file(&nm1, 1_000_000);
+    write_file(&nm2, 1_000_000);
+
+    // Create a .reclaimignore file at the root
+    fs::write(dir.path().join(".reclaimignore"), "proj1\n# some comment\n  \n").unwrap();
+
+    let output = Command::new(reclaim_bin())
+        .arg(dir.path())
+        .arg("--yes")
+        .arg("--min-size-mb")
+        .arg("0")
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+
+    // proj1's node_modules should still exist since it was excluded by .reclaimignore...
+    assert!(nm1.exists());
+    // ...but proj2's node_modules should be gone.
+    assert!(!nm2.exists());
+}
+
+#[test]
+fn cli_accepts_sort_arguments() {
+    let dir = tempfile::tempdir().unwrap();
+    let nm = dir.path().join("proj/node_modules/pkg/blob.bin");
+    write_file(&nm, 1_000_000);
+
+    let output_size = Command::new(reclaim_bin())
+        .arg(dir.path())
+        .arg("--dry-run")
+        .arg("--min-size-mb")
+        .arg("0")
+        .arg("--sort")
+        .arg("size")
+        .output()
+        .unwrap();
+    assert!(output_size.status.success());
+
+    let output_age = Command::new(reclaim_bin())
+        .arg(dir.path())
+        .arg("--dry-run")
+        .arg("--min-size-mb")
+        .arg("0")
+        .arg("--sort")
+        .arg("age")
+        .output()
+        .unwrap();
+    assert!(output_age.status.success());
+}

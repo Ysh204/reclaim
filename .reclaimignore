@@ -1,0 +1,4 @@
+# Add patterns of directories to ignore/exclude here, one per line.
+# Example:
+# some_important_venv
+# target_backup

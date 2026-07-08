@@ -67,11 +67,14 @@ reclaim --yes              # skip the picker, delete everything found
 reclaim --min-size-mb 100  # only show artifacts 100 MB or larger
 reclaim --json             # machine-readable output, e.g. for scripting
 reclaim --exclude proj1    # exclude paths containing the pattern "proj1"
+reclaim --sort age         # sort findings by age (oldest first) or size
 ```
 
 By default `reclaim` shows you everything it found above 1 MB, lets you
 uncheck anything you want to keep in an interactive picker, and only
 deletes what you confirm.
+
+If a `.reclaimignore` file exists in the directory being scanned, any paths containing lines from that file (ignoring empty lines and lines starting with `#`) will be skipped automatically during the scan.
 
 ## What it detects
 

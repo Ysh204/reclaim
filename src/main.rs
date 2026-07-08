@@ -39,6 +39,16 @@ struct Args {
     /// Exclude paths or directories containing any of these substrings.
     #[arg(long, short, value_delimiter = ',')]
     exclude: Vec<String>,
+
+    /// Sort findings by: size (largest first), age (oldest first).
+    #[arg(long, value_enum, default_value_t = SortBy::Size)]
+    sort: SortBy,
+}
+
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+enum SortBy {
+    Size,
+    Age,
 }
 
 fn main() -> Result<()> {
@@ -54,8 +64,18 @@ fn main() -> Result<()> {
         std::process::exit(1);
     }
 
+    let mut excludes = args.exclude.clone();
+    if let Ok(ignore_content) = std::fs::read_to_string(root.join(".reclaimignore")) {
+        for line in ignore_content.lines() {
+            let trimmed = line.trim();
+            if !trimmed.is_empty() && !trimmed.starts_with('#') {
+                excludes.push(trimmed.to_string());
+            }
+        }
+    }
+
     println!("{} {}", "Scanning".bold(), root.display());
-    let candidates = scanner::find_candidates(&root, &args.exclude);
+    let candidates = scanner::find_candidates(&root, &excludes);
 
     if candidates.is_empty() {
         println!("Nothing found — this tree looks clean already.");
@@ -65,7 +85,20 @@ fn main() -> Result<()> {
     let mut findings = scanner::size_findings(candidates);
     let min_bytes = args.min_size_mb * 1024 * 1024;
     findings.retain(|f| f.size_bytes >= min_bytes);
-    findings.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
+
+    match args.sort {
+        SortBy::Size => findings.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes)),
+        SortBy::Age => findings.sort_by(|a, b| {
+            let age_a = a.age_days();
+            let age_b = b.age_days();
+            match (age_a, age_b) {
+                (Some(da), Some(db)) => db.cmp(&da), // oldest first (larger days)
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => std::cmp::Ordering::Equal,
+            }
+        }),
+    }
 
     if findings.is_empty() {
         println!(
