@@ -43,6 +43,10 @@ struct Args {
     /// Sort findings by: size (largest first), age (oldest first).
     #[arg(long, value_enum, default_value_t = SortBy::Size)]
     sort: SortBy,
+
+    /// Skip/ignore directories modified within the last N days.
+    #[arg(long, default_value_t = 0)]
+    skip_recent: u64,
 }
 
 #[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
@@ -84,7 +88,15 @@ fn main() -> Result<()> {
 
     let mut findings = scanner::size_findings(candidates);
     let min_bytes = args.min_size_mb * 1024 * 1024;
-    findings.retain(|f| f.size_bytes >= min_bytes);
+    findings.retain(|f| {
+        let size_ok = f.size_bytes >= min_bytes;
+        let age_ok = if args.skip_recent > 0 {
+            f.age_days().map_or(true, |age| age >= args.skip_recent)
+        } else {
+            true
+        };
+        size_ok && age_ok
+    });
 
     match args.sort {
         SortBy::Size => findings.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes)),
@@ -101,10 +113,7 @@ fn main() -> Result<()> {
     }
 
     if findings.is_empty() {
-        println!(
-            "Found only artifacts smaller than {} — nothing to show. Try --min-size-mb 0.",
-            format_size(min_bytes, DECIMAL)
-        );
+        println!("Found only filtered-out artifacts — nothing to show.");
         return Ok(());
     }
 

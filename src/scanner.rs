@@ -124,13 +124,13 @@ pub fn size_findings(candidates: Vec<(String, String, std::path::PathBuf)>) -> V
                 if let Ok(meta) = entry.metadata() {
                     if meta.is_file() {
                         size_bytes += meta.len();
-                    }
-                    if let Ok(modified) = meta.modified() {
-                        if let Ok(secs) = modified
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .map(|d| d.as_secs())
-                        {
-                            newest_secs = Some(newest_secs.map_or(secs, |n: u64| n.max(secs)));
+                        if let Ok(modified) = meta.modified() {
+                            if let Ok(secs) = modified
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .map(|d| d.as_secs())
+                            {
+                                newest_secs = Some(newest_secs.map_or(secs, |n: u64| n.max(secs)));
+                            }
                         }
                     }
                 }

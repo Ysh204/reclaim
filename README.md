@@ -68,6 +68,7 @@ reclaim --min-size-mb 100  # only show artifacts 100 MB or larger
 reclaim --json             # machine-readable output, e.g. for scripting
 reclaim --exclude proj1    # exclude paths containing the pattern "proj1"
 reclaim --sort age         # sort findings by age (oldest first) or size
+reclaim --skip-recent 7    # skip directories modified in the last 7 days (active protection)
 ```
 
 By default `reclaim` shows you everything it found above 1 MB, lets you

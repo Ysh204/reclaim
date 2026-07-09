@@ -41,6 +41,29 @@ pub fn print_table(findings: &[Finding]) {
     }
 
     println!("{}", "-".repeat(80));
+    println!("{}", "Ecosystem Breakdown:".bold());
+    use std::collections::BTreeMap;
+    let mut breakdown: BTreeMap<&str, (u64, usize)> = BTreeMap::new();
+    for f in findings {
+        let entry = breakdown.entry(&f.label).or_insert((0, 0));
+        entry.0 += f.size_bytes;
+        entry.1 += 1;
+    }
+    let mut breakdown_vec: Vec<(&&str, &(u64, usize))> = breakdown.iter().collect();
+    breakdown_vec.sort_by(|a, b| b.1.0.cmp(&a.1.0)); // sort by size descending
+
+    for (label, (size, count)) in breakdown_vec {
+        let dir_word = if *count == 1 { "directory" } else { "directories" };
+        println!(
+            "  {:<20} {:<10} ({} {})",
+            label.cyan(),
+            format_size(*size, DECIMAL).yellow(),
+            count,
+            dir_word
+        );
+    }
+
+    println!("{}", "-".repeat(80));
     println!(
         "{} reclaimable across {} directories\n",
         format_size(total, DECIMAL).yellow().bold(),

@@ -225,3 +225,38 @@ fn cli_accepts_sort_arguments() {
         .unwrap();
     assert!(output_age.status.success());
 }
+
+#[test]
+fn skip_recent_filters_out_recently_modified_directories() {
+    let dir = tempfile::tempdir().unwrap();
+    let nm1 = dir.path().join("proj1/node_modules/pkg/blob.bin");
+    let nm2 = dir.path().join("proj2/node_modules/pkg/blob.bin");
+
+    // Write nm1 and set its modified time to 5 days ago
+    write_file(&nm1, 1_000_000);
+    let f1 = std::fs::OpenOptions::new().write(true).open(&nm1).unwrap();
+    let time_5_days_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(5 * 86_400);
+    f1.set_modified(time_5_days_ago).unwrap();
+
+    // Write nm2 and leave it at current time (0 days ago)
+    write_file(&nm2, 1_000_000);
+
+    // If we skip recent (< 3 days), proj2/node_modules should be skipped because it is 0 days old.
+    // proj1/node_modules is 5 days old, so it should be kept and deleted.
+    let output = Command::new(reclaim_bin())
+        .arg(dir.path())
+        .arg("--yes")
+        .arg("--min-size-mb")
+        .arg("0")
+        .arg("--skip-recent")
+        .arg("3")
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+
+    // proj1's node_modules should be deleted...
+    assert!(!nm1.exists());
+    // ...but proj2's node_modules should still exist since it was skipped.
+    assert!(nm2.exists());
+}
